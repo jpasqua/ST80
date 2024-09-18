@@ -30,6 +30,8 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.FileNotFoundException;
@@ -165,6 +167,7 @@ public class ST80 {
 		 */
 		String imageFile = null;
 		boolean haveStatusline = false;
+		boolean doFullScreen = false;
 		Integer timeAdjustMinutes = null;
 		int tzOffsetMinutes = 60; // CET ~ Berlin
 		int dstFirstDay = 31 + 28 + 31 - 6; // .................................... DST begins on sunday at or before 31.03.
@@ -184,6 +187,8 @@ public class ST80 {
 				}
 			} else if ("--stats".equals(lcArg)) {
 				statsAtEnd = true;
+			} else if ("--fullscreen".equals(lcArg)) {
+				doFullScreen = true;
 			} else if (lcArg.startsWith("--tz:")) {
 				String[] parts = lcArg.substring(5).split(":");
 				if (parts.length != 1 && parts.length != 3) {
@@ -232,6 +237,7 @@ public class ST80 {
 			System.out.printf("\nUsage: st80 [--statusline] [--stats] [--timeadjust:nn] image-file[.im]\n");
 			return;
 		}
+		if (doFullScreen) { haveStatusline = false; }
 		
 		/*
 		 * create the file set handler for the given image file, loading the Smalltalk image and
@@ -267,36 +273,9 @@ public class ST80 {
 		 */
 		
 		// create top-level window
-		JFrame mainFrame = new JFrame();
-		mainFrame.getContentPane().setLayout(new BorderLayout(2, 2));
-
-		// the b/w display bitmap panel with mouse/keyboard handlers
-		Dimension dims = new Dimension(640, 480);
-		DisplayBwPane displayPanel = new DisplayBwPane(mainFrame, dims);
-		mainFrame.getContentPane().add(displayPanel, BorderLayout.CENTER);
-		MouseHandler mouseHandler = new MouseHandler(displayPanel);
-		displayPanel.addMouseMotionListener(mouseHandler);
-		displayPanel.addMouseListener(mouseHandler);
-		displayPanel.addKeyListener(new KeyHandler());
-		
-		// connect the (Java) display panel with the (Smalltalk) display bitmap
-		InputOutput.registerDisplayPane(displayPanel);
-		
-		// add the status line 
-		if (haveStatusline) {
-			JLabel statusLine = new JLabel(" ST80 Engine not running");
-			statusLine.setFont(new Font("Monospaced", Font.BOLD, 12));
-			mainFrame.getContentPane().add(statusLine, BorderLayout.SOUTH);
-			Interpreter.setStatusConsumer( s -> statusLine.setText(s) );
-		}
-		
-		// finalize the top-level window and display it in an own thread
-		mainFrame.pack();
-		mainFrame.setResizable(false);
-		mainFrame.setTitle("Smalltalk-80 Engine");
-		mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		JFrame mainFrame = createMainFrame(doFullScreen, haveStatusline);
 		mainFrame.addWindowListener(new WindowStateListener(mainFrame, statsAtEnd));
-		
+
 		EventQueue.invokeLater(() -> mainFrame.setVisible(true));
 		
 		/*
@@ -328,4 +307,61 @@ public class ST80 {
 		}
 	}
 
+	private static JFrame createMainFrame(boolean attemptFullScreen, boolean showStats) {
+		JFrame window = new JFrame();
+		window.setTitle("Smalltalk-80 Engine");
+		window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+		int spacing = 2;
+		Dimension screenDims = new Dimension(640, 480);
+			// The ultimate dims may be updated from the smalltalk environment ; e.g.:
+		  // DisplayScreen displayExtent: 1024@768
+		if (attemptFullScreen) {
+			window.setUndecorated(true);
+			window.setResizable(false);
+			GraphicsEnvironment graphics = GraphicsEnvironment.getLocalGraphicsEnvironment();
+			GraphicsDevice device = graphics.getDefaultScreenDevice();
+			if (device.isFullScreenSupported()) {
+				device.setFullScreenWindow(window);
+				screenDims = new Dimension(device.getDisplayMode().getWidth(), device.getDisplayMode().getHeight());
+				// We have to be careful here. The Smalltalk display is represent as an array object.
+				// Since this is a 16 bit machine, the maximum size of the array is 65533 16-bit-words:
+				//   (max(16-bit) minus 2 words for the length and class).
+				// This limits the maximum display geometry: ((pixel-width + 15) / 16) * pixel-height < 65533
+				// Ensure that we aren't exceeding that.
+				if ( (((screenDims.width + 15) / 16) * screenDims.height) > 65533) {
+					// Fallback to a known working size, the 1186 screen dims
+					screenDims = new Dimension(1152, 862);
+				}
+				spacing = 0;
+			}
+		}
+
+		window.getContentPane().setLayout(new BorderLayout(spacing, spacing));
+
+		// the b/w display bitmap panel with mouse/keyboard handlers
+		DisplayBwPane displayPanel = new DisplayBwPane(window, screenDims);
+		window.getContentPane().add(displayPanel, BorderLayout.CENTER);
+		MouseHandler mouseHandler = new MouseHandler(displayPanel);
+		displayPanel.addMouseMotionListener(mouseHandler);
+		displayPanel.addMouseListener(mouseHandler);
+		displayPanel.addKeyListener(new KeyHandler());
+		
+		// connect the (Java) display panel with the (Smalltalk) display bitmap
+		InputOutput.registerDisplayPane(displayPanel);
+		
+		// add the status line 
+		if (showStats) {
+			JLabel statusLine = new JLabel(" ST80 Engine not running");
+			statusLine.setFont(new Font("Monospaced", Font.BOLD, 12));
+			window.getContentPane().add(statusLine, BorderLayout.SOUTH);
+			Interpreter.setStatusConsumer( s -> statusLine.setText(s) );
+		}
+		
+		// finalize the top-level window and display it in an own thread
+		window.pack();
+		window.setResizable(false);
+
+		return window;
+	}
 }
