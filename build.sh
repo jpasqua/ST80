@@ -33,7 +33,7 @@ echo "Main-Class: $MAIN_CLASS" >> $MANIFEST_FILE
 # Create the JAR file
 echo "Creating JAR..."
 # Add 'v' to 'cfm' to get verbose output
-# jar cfm $BUILD_DIR/$JAR_NAME $MANIFEST_FILE -C $BUILD_DIR .
+jar cfm $BUILD_DIR/$JAR_NAME $MANIFEST_FILE -C $BUILD_DIR .
 
 # Check if the JAR creation was successful
 if [ $? -ne 0 ]; then
