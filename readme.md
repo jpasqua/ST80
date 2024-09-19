@@ -1,3 +1,19 @@
+## Fork Information
+
+This fork of ST80 primarily adds a rudimentary fullscreen capability. The `sample_env.zip` is unchanged from the original repo. This repo includes a new `st80vm.jar` file that can be substituted for the copy within `sample_env.zip `.
+
+### Fullscreen Mode
+
+When using the --fullscreen option the emuator window will occupy the entire display. There will be no window controls and no status line (even if you used the `--statusline` option). This is helpful in creating an immersive experience. When you exit the emulator, the fullscreen window will close automatically.
+
+When you launch in fullscreen mode the emulator will try to match the emualted display size to the physical display size. This will not happen in two circumstances. First, if the Smalltalk image contains an explicit setting for the display size. For example:
+
+```
+	DisplayScreen displayExtent: 1152@862
+```
+
+In this case the display will take on that size whether it is bigger or smaller than the physical display. Second, if the physical screen size is larger than the emulator can accommodate. The emualted screen can be at most 1,048,576 pixels. For example, 1024x1024. If the physical screen is larger than that, the emulated display size will be set to an arbitrary size that is below the limit.
+
 ## ST80 - a Smalltalk-80 virtual machine based on the "Bluebook" specification
 
 ST80 is a virtual machine for Smalltalk-80 as specified in the "Bluebook" (Smalltalk-80:
